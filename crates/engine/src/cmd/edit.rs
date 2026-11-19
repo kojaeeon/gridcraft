@@ -23,7 +23,7 @@ use cell::{cell_set, range_fill, range_set_values};
 pub(crate) use cell::{check_arg_counts, input_to_cell, is_formula_input, json_to_input, parse_typed_formula};
 #[cfg(test)]
 pub(crate) use clipboard::parse_tsv;
-use clipboard::{clear_clipboard, copy, cut, paste, range_move};
+use clipboard::{clear_clipboard, copy, copy_markdown, cut, paste, range_move};
 use fill::{auto_fill, fill_dir, fill_series, flash_fill};
 #[cfg(test)]
 use find::replace_ci;
@@ -80,6 +80,7 @@ pub fn specs() -> Vec<CommandSpec> {
         cmd!(noundo "edit.undo", "Undo", ["Edit"], Some("Cmd+Z"), "{steps?: 1}", can_undo, undo),
         cmd!(noundo "edit.redo", "Redo", ["Edit"], Some("Cmd+Y"), "{steps?: 1}", can_redo, redo),
         cmd!(noundo "edit.copy", "Copy", ["Home", "Clipboard"], Some("Cmd+C"), "{range?, html?: bool} → {range, text, html?} (html: a styled HTML table, only when requested and small enough)", has_doc, copy),
+        cmd!(query "edit.copyMarkdown", "Copy as Markdown Table", [], None, "{range?} → {range, text} (first visible row is the table header)", has_doc, copy_markdown),
         cmd!(noundo "edit.cut", "Cut", ["Home", "Clipboard"], Some("Cmd+X"), "{range?, html?: bool} → {range, text, html?} (html: a styled HTML table, only when requested and small enough)", has_doc, cut),
         cmd!(
             "edit.paste",

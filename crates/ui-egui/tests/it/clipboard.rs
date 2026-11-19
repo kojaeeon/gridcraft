@@ -88,6 +88,34 @@ fn programmatic_copy_does_not_write_to_the_system_clipboard() {
 }
 
 #[test]
+fn cell_context_menu_copies_the_selected_area_as_markdown_text() {
+    let mut h = harness(Services { copy_html: Some(Box::new(|_, _| panic!("Markdown copy must publish plain text"))), ..Default::default() });
+    let app = h.state();
+    let sh = app.session.active().unwrap().wb.active().unwrap();
+    let geo = grid::Geo::new(sh, app.grid.rect.unwrap(), app.view().scroll);
+    let pos = geo.cell_rect(sh, CellRef::parse("B2").unwrap()).center();
+    h.input_mut().events.push(Event::PointerMoved(pos));
+    for pressed in [true, false] {
+        h.input_mut().events.push(Event::PointerButton { pos, button: PointerButton::Secondary, pressed, modifiers: Modifiers::NONE });
+        h.run_steps(2);
+    }
+
+    h.get_by_label("Copy as Markdown Table").click();
+    for _ in 0..4 {
+        h.step();
+        if h.output()
+            .platform_output
+            .commands
+            .iter()
+            .any(|command| matches!(command, OutputCommand::CopyText(text) if text == "| Name | Score |\n| --- | --- |\n| Ada | 42 |\n"))
+        {
+            return;
+        }
+    }
+    panic!("the context menu did not copy the selected range as Markdown");
+}
+
+#[test]
 fn pasting_reads_the_clipboard_html_for_the_numbers_behind_the_text() {
     // #257: currency text from another spreadsheet stays a number when the host offers the HTML.
     let mut h = harness(Services {
