@@ -7,7 +7,15 @@ use super::{
 
 // ---------------------------------------------------------------- clipboard
 
-fn copy_impl(s: &mut Session, p: &Json, cut: bool) -> Result<Json> {
+#[derive(Clone, Copy, PartialEq)]
+enum CopyMode {
+    Cells,
+    Cut,
+    Markdown,
+}
+
+fn copy_impl(s: &mut Session, p: &Json, mode: CopyMode) -> Result<Json> {
+    let cut = mode == CopyMode::Cut;
     let multiple = || EngineError::Other("This action won't work on multiple selections.".into());
     let sheet = target_sheet(s, p)?;
     let ranges = target_ranges(s, p)?;
@@ -53,6 +61,10 @@ fn copy_impl(s: &mut Session, p: &Json, cut: bool) -> Result<Json> {
         }
         packed
     };
+    if mode == CopyMode::Markdown {
+        let text = crate::display::range_markdown(&wb, sheet, range)?;
+        return Ok(json!({"range": range.a1(), "text": text}));
+    }
     let text = crate::display::range_text(&wb, sheet, range);
     // The HTML rendering is for the host clipboard (UI); it can reach 4 MB, so agents and
     // scripts get it only when they ask for it.
@@ -234,11 +246,15 @@ fn slide_together(wb: &gridcraft_model::Workbook, sheet: usize, areas: &[RangeRe
 }
 
 pub(super) fn copy(s: &mut Session, p: &Json) -> Result<Json> {
-    copy_impl(s, p, false)
+    copy_impl(s, p, CopyMode::Cells)
+}
+
+pub(super) fn copy_markdown(s: &mut Session, p: &Json) -> Result<Json> {
+    copy_impl(s, p, CopyMode::Markdown)
 }
 
 pub(super) fn cut(s: &mut Session, p: &Json) -> Result<Json> {
-    copy_impl(s, p, true)
+    copy_impl(s, p, CopyMode::Cut)
 }
 
 pub(super) fn clear_clipboard(s: &mut Session, _: &Json) -> Result<Json> {

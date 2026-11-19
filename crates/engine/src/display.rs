@@ -197,6 +197,66 @@ pub fn range_text(wb: &Workbook, sheet: usize, r: RangeRef) -> String {
     out
 }
 
+/// Render displayed cells as a Markdown table, using the first visible row as its header.
+pub(crate) fn range_markdown(wb: &Workbook, sheet: usize, range: RangeRef) -> crate::Result<String> {
+    const MAX_BYTES: usize = 4 * 1024 * 1024;
+    let too_large = || crate::EngineError::Other("The selection is too large to copy as a Markdown table.".into());
+    if clipboard_range(range) != range {
+        return Err(too_large());
+    }
+    let sh = wb.sheet(sheet).ok_or(crate::EngineError::NoDocument)?;
+    let rows = (range.start.row..=range.end.row).filter(|&row| !sh.is_row_hidden(row));
+    let mut out = String::new();
+    for (index, row) in rows.enumerate() {
+        out.push('|');
+        for col in range.start.col..=range.end.col {
+            out.push(' ');
+            let text = cell_text(wb, sh, CellRef::new(row, col));
+            if text.len() > MAX_BYTES.saturating_sub(out.len()) {
+                return Err(too_large());
+            }
+            push_markdown_cell(&mut out, &text);
+            out.push_str(" |");
+            if out.len() > MAX_BYTES {
+                return Err(too_large());
+            }
+        }
+        out.push('\n');
+        if index == 0 {
+            out.push('|');
+            for _ in range.start.col..=range.end.col {
+                out.push_str(" --- |");
+            }
+            out.push('\n');
+        }
+    }
+    if out.is_empty() {
+        return Err(crate::EngineError::Other("There are no visible rows to copy.".into()));
+    }
+    if out.len() > MAX_BYTES {
+        return Err(too_large());
+    }
+    Ok(out)
+}
+
+fn push_markdown_cell(out: &mut String, text: &str) {
+    for c in text.replace("\r\n", "\n").chars() {
+        match c {
+            '\n' | '\r' => out.push_str("<br>"),
+            '\t' => out.push_str("&#9;"),
+            '\\' => out.push_str("&#92;"),
+            '&' => out.push_str("&amp;"),
+            '<' => out.push_str("&lt;"),
+            '>' => out.push_str("&gt;"),
+            '|' | '`' | '*' | '_' | '[' | ']' | '~' => {
+                out.push('\\');
+                out.push(c);
+            }
+            _ => out.push(c),
+        }
+    }
+}
+
 /// The existing plain-text clipboard limit, shared with its HTML representation.
 pub(crate) fn clipboard_range(r: RangeRef) -> RangeRef {
     if r.count() > 2_000_000 { RangeRef::new(r.start, r.start.offset_clamped(1999, 999)) } else { r }
@@ -258,6 +318,32 @@ pub fn stats(sheet: &Sheet, ranges: &[RangeRef]) -> Stats {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn markdown_copy_uses_visible_display_values_and_escapes_table_syntax() {
+        use serde_json::json;
+        let mut s = crate::Session::new();
+        s.new_workbook();
+        s.execute(
+            "range.setValues",
+            json!({"range": "B2", "values": [
+                ["hidden", "hidden"],
+                ["Name|ID", "Score"],
+                ["<tag>&\r\nnext", 0.25],
+                ["\\|", ""]
+            ]}),
+        )
+        .unwrap();
+        s.execute("home.hideRows", json!({"rows": "2:2"})).unwrap();
+        s.execute("home.numberFormat", json!({"range": "C4", "code": "0.0%"})).unwrap();
+        s.execute("edit.copy", json!({"range": "C4"})).unwrap();
+
+        let copied = s.execute("edit.copyMarkdown", json!({"range": "B2:C5"})).unwrap();
+        assert_eq!(copied["text"], "| Name\\|ID | Score |\n| --- | --- |\n| &lt;tag&gt;&amp;<br>next | 25.0% |\n| &#92;\\| |  |\n");
+        assert_eq!(s.clipboard.as_ref().map(|clip| clip.range.a1()).as_deref(), Some("C4"));
+        assert!(s.execute("edit.copyMarkdown", json!({"range": "B2:C2"})).is_err());
+        assert!(s.execute("edit.copyMarkdown", json!({"range": "A1:XFD1000"})).is_err());
+    }
 
     /// A format code far past Excel's 255 characters shows its values as General, for every cell
     /// that shares it, without being hashed into the cache each time.

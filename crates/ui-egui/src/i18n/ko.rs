@@ -18,6 +18,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Insert Paste" => "삽입 붙여넣기",
         "Cut" => "잘라내기",
         "Copy" => "복사",
+        "Copy as Markdown Table" => "Markdown 표로 복사",
         "Format Painter (double-click to keep it on)" => "서식 복사 (두 번 클릭하여 유지)",
         "Bold" => "굵게",
         "Italic" => "기울임꼴",
