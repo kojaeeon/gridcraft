@@ -342,7 +342,7 @@ mod tests {
         assert_eq!(copied["text"], "| Name\\|ID | Score |\n| --- | --- |\n| &lt;tag&gt;&amp;<br>next | 25.0% |\n| &#92;\\| |  |\n");
         assert_eq!(s.clipboard.as_ref().map(|clip| clip.range.a1()).as_deref(), Some("C4"));
         assert!(s.execute("edit.copyMarkdown", json!({"range": "B2:C2"})).is_err());
-        assert!(s.execute("edit.copyMarkdown", json!({"range": "A1:XFD1000"})).is_err());
+        assert!(s.execute("edit.copyMarkdown", json!({"range": "A1:XEZ1000"})).is_err());
     }
 
     /// A format code far past Excel's 255 characters shows its values as General, for every cell
