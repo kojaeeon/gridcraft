@@ -264,3 +264,46 @@ fn ods_blank_repeats_past_the_sheet_edge_are_clipped() {
     );
     assert!(matches!(read_ods(&late), Err(IoError::TooLarge(_))));
 }
+
+#[test]
+fn written_ods_has_independent_spreadsheet_data_and_ignores_a_stale_snapshot() {
+    use gridcraft_model::{Cell, Formula, Workbook};
+    use std::io::Cursor;
+
+    let mut wb = Workbook::new();
+    let sh = wb.sheet_mut(0).unwrap();
+    sh.name = "한글 & Data".into();
+    sh.cells.set(CellRef::new(0, 0), Cell::value(Value::Number(42.0)));
+    let mut formula = Cell::formula(Formula::new("SUM(A1:A2)+1"));
+    formula.value = Value::Number(43.0);
+    sh.cells.set(CellRef::new(0, 1), formula);
+    sh.cells.set(CellRef::new(2, 5), Cell::value(text("  한글\t<&>\n ")));
+    sh.cells.set(CellRef::new(999_999, 10_000), Cell::value(Value::Bool(true)));
+    let merged = RangeRef::new(CellRef::new(2, 5), CellRef::new(3, 6));
+    sh.merges.push(merged);
+    let bytes = crate::write_ods(&wb, write_xlsx(&wb).unwrap()).unwrap();
+    assert_eq!(sniff(&bytes), Format::Ods);
+    let mut zip = zip::ZipArchive::new(Cursor::new(&bytes)).unwrap();
+    let first = zip.by_index(0).unwrap();
+    assert_eq!(first.name(), "mimetype");
+    assert_eq!(first.compression(), zip::CompressionMethod::Stored);
+    drop(first);
+    let mut package = crate::package::Package::open(&bytes).unwrap();
+    let xml = String::from_utf8(package.read("content.xml").unwrap().unwrap()).unwrap();
+    assert!(xml.contains(r#"table:formula="of:=(SUM([.A1:.A2])+1)""#));
+    assert!(xml.len() < 4096, "sparse cell addresses are represented by repeats");
+    let snapshot = package.read("GridCraft/workbook.bin").unwrap().unwrap();
+
+    let xml = xml.replace(r#"office:value="42""#, r#"office:value="24""#);
+    let edited =
+        make_zip(&[("mimetype", MIME), ("META-INF/manifest.xml", MANIFEST), ("content.xml", xml.as_bytes()), ("GridCraft/workbook.bin", &snapshot)]);
+    let (read, report) = read_ods(&edited).unwrap();
+    assert!(report.warnings.iter().any(|warning| warning == crate::ODS_DATA_ONLY));
+    let sh = read.active().unwrap();
+    assert_eq!(sh.name, "한글 & Data");
+    assert_eq!(sh.value(CellRef::new(0, 0)), Value::Number(24.0));
+    assert_eq!(sh.value(CellRef::new(0, 1)), Value::Number(43.0));
+    assert_eq!(sh.value(CellRef::new(2, 5)), text("  한글\t<&>\n "));
+    assert_eq!(sh.value(CellRef::new(999_999, 10_000)), Value::Bool(true));
+    assert_eq!(sh.merges, [merged]);
+}

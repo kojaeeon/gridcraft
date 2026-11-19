@@ -1,4 +1,4 @@
-//! GridCraft file formats: XLSX (transitional and strict) and CSV import/export, plus XLSB and ODS data import
+//! GridCraft file formats: XLSX (transitional and strict) and CSV import/export, plus ODS import/export and XLSB data import
 //! and legacy Excel 97-2003 `.xls` (BIFF8) import, and password-encrypted workbooks (Agile and Standard encryption).
 //!
 //! Clean-room implementation from ECMA-376 / ISO/IEC 29500 and observed behaviour. All entry
@@ -21,6 +21,7 @@ mod drawing;
 mod feature_bags;
 mod fmla;
 mod ods;
+mod ods_write;
 mod omml;
 mod package;
 mod passthrough;
@@ -48,7 +49,8 @@ use gridcraft_model::Workbook;
 
 pub use crypto::{DecryptError, check_encryption, decrypt};
 pub use csv::{MAX_CSV_BYTES, decode_text, read_csv, read_csv_with_report, write_csv, write_csv_limited};
-pub use ods::read_ods;
+pub use ods::{ODS_DATA_ONLY, read_ods, read_ods_with};
+pub use ods_write::write_ods;
 pub use package::MAX_PART;
 pub use passthrough::rebase_links;
 pub use xls::{read_xls, read_xls_with};

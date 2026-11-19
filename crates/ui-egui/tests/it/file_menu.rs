@@ -144,16 +144,17 @@ fn save_actions_include_the_cell_draft_and_close_keeps_the_unsaved_prompt() {
     choose(&mut h, "Save");
     assert!(h.state().editor.is_none(), "opening File commits the cell draft");
     assert_eq!(page(&h), Some("saveAs"), "a workbook without a file saves through Save As");
-    click(&mut h, "Download (.xlsx)");
+    click(&mut h, "Download (.ods)");
     assert!(h.state().backstage.is_none());
     choose(&mut h, "Save As");
-    click(&mut h, "Download (.xlsx)");
+    click(&mut h, "Download (.ods)");
     choose(&mut h, "Export");
     click(&mut h, "CSV (Comma delimited)");
     let saved = downloads.lock().unwrap();
     assert_eq!(saved.len(), 3);
-    for (_, bytes) in saved.iter().take(2) {
-        let (wb, _) = gridcraft_engine::io::open_bytes("saved.xlsx", bytes).unwrap();
+    for (name, bytes) in saved.iter().take(2) {
+        assert!(name.ends_with(".ods"));
+        let (wb, _) = gridcraft_engine::io::open_bytes(name, bytes).unwrap();
         assert_eq!(wb.active().unwrap().value(CellRef::new(0, 0)), Value::Number(123.0));
     }
     assert!(saved[2].0.ends_with(".csv"));

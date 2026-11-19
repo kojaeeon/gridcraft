@@ -431,7 +431,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Options|Save" => "Opslaan",
         "Show formula bar" => "Formulebalk weergeven",
         "Enable AutoComplete for cell values" => "Automatisch aanvullen van celwaarden inschakelen",
-        "Save .xlsx workbooks automatically after every change" => ".xlsx-werkmappen na elke wijziging automatisch opslaan",
+        "Save .ods/.xlsx workbooks automatically after every change" => ".ods/.xlsx-werkmappen na elke wijziging automatisch opslaan",
         "Workbook calculation" => "Werkmapberekening",
         "Enable iterative calculation" => "Iteratieve berekening inschakelen",
         "Calculation settings are saved with the workbook." => "Berekeningsinstellingen worden bij de werkmap opgeslagen.",

@@ -2827,7 +2827,7 @@ fn ods_import_keeps_cached_values_and_reports_limits() {
         assert!(!r["warnings"].as_array().unwrap().is_empty());
         assert!(s.take_ui_requests().iter().any(|r| matches!(r, crate::UiRequest::Message(_))));
         assert!(s.doc().unwrap().path.is_none());
-        assert!(s.doc().unwrap().display_title().ends_with(".xlsx"));
+        assert!(s.doc().unwrap().display_title().ends_with(".ods"));
         assert_eq!(v(&s, "A1"), Value::Number(42.0));
         assert_eq!(v(&s, "B1"), Value::from("Original data"));
         assert!(s.doc().unwrap().wb.active().unwrap().cell(CellRef::parse("A1").unwrap()).unwrap().formula.is_none());
@@ -2854,15 +2854,48 @@ fn ods_import_never_reuses_source_as_save_target() {
         s.execute("file.save", json!({})).unwrap();
         assert!(s.take_ui_requests().iter().any(|r| matches!(r, crate::UiRequest::Dialog(name, _) if name == "saveAs")));
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
-        assert!(s.execute("file.saveAs", json!({"path": dir.join("source.ods")})).is_err());
-        assert!(s.execute("file.saveBytes", json!({"format": "ods"})).is_err());
-        let output = dir.join("converted.xlsx");
+        let output = dir.join("converted.ods");
         s.execute("file.saveAs", json!({"path": output})).unwrap();
         assert!(!s.doc().unwrap().is_dirty());
         assert_eq!(std::fs::read(&path).unwrap(), bytes);
-        s.execute("file.open", json!({"name": "converted.xlsx", "base64": crate::io::base64_encode(&std::fs::read(output).unwrap())})).unwrap();
+        s.execute("file.open", json!({"name": "converted.ods", "base64": crate::io::base64_encode(&std::fs::read(output).unwrap())})).unwrap();
         assert_eq!(v(&s, "A1"), Value::Number(43.0));
     }
+    std::fs::remove_dir_all(dir).unwrap();
+}
+
+#[test]
+#[cfg(not(target_arch = "wasm32"))]
+fn native_ods_is_the_default_and_reopens_as_an_editable_workbook() {
+    let dir = std::env::temp_dir().join(format!("gridcraft-native-ods-{}-{}", std::process::id(), unique_nonce()));
+    std::fs::create_dir(&dir).unwrap();
+    let path = dir.join("workbook.ods");
+    let mut session = s();
+    session.execute("cell.set", json!({"cell": "A1", "input": "42"})).unwrap();
+    session.execute("cell.set", json!({"cell": "B1", "input": "=SUM(A1:A2)+1"})).unwrap();
+    session.execute("home.bold", json!({"range": "B1"})).unwrap();
+    let download = session.execute("file.saveBytes", json!({})).unwrap();
+    assert!(download["name"].as_str().unwrap().ends_with(".ods"));
+    let bytes = crate::io::base64_decode(download["base64"].as_str().unwrap()).unwrap();
+    assert_eq!(gridcraft_xlsx::sniff(&bytes), gridcraft_xlsx::Format::Ods);
+
+    let saved = session.execute("file.saveAs", json!({"path": dir.join("workbook")})).unwrap();
+    assert_eq!(saved["path"], path.to_str().unwrap());
+    assert!(!session.doc().unwrap().is_dirty());
+    let mut reopened = s();
+    let opened = reopened.execute("file.open", json!({"path": path})).unwrap();
+    assert!(opened["warnings"].as_array().unwrap().is_empty());
+    let wb = &reopened.doc().unwrap().wb;
+    let formula_cell = wb.active().unwrap().cell(CellRef::new(0, 1)).unwrap();
+    assert!(formula_cell.formula.is_some());
+    assert!(wb.styles.get(formula_cell.style).font.bold);
+    reopened.execute("cell.set", json!({"cell": "A1", "input": "50"})).unwrap();
+    assert_eq!(v(&reopened, "B1"), Value::Number(51.0));
+    assert_eq!(reopened.execute("file.save", json!({})).unwrap()["path"], path.to_str().unwrap());
+    assert!(!reopened.doc().unwrap().is_dirty());
+    let (wb, warnings) = crate::io::open_bytes("workbook.ods", &std::fs::read(&path).unwrap()).unwrap();
+    assert!(warnings.is_empty());
+    assert_eq!(wb.active().unwrap().value(CellRef::new(0, 1)), Value::Number(51.0));
     std::fs::remove_dir_all(dir).unwrap();
 }
 

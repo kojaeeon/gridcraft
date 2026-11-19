@@ -119,7 +119,7 @@ pub struct UiState {
     /// Tint the active cell's whole row (File ▸ Options ▸ General), on every sheet and workbook, so
     /// the eye keeps its place across a wide table. A preference: nothing goes into the file.
     pub highlight_active_row: bool,
-    /// AutoSave (the title-bar switch): save saved-to-file .xlsx workbooks shortly after every
+    /// AutoSave (the title-bar switch): save .ods and .xlsx workbooks that have a file shortly after every
     /// change. A preference like the rest of this struct — it stays on across restarts (#1901).
     pub autosave: bool,
     pub recent: Vec<String>,

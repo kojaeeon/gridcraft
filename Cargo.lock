@@ -982,6 +982,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "craft-odf"
+version = "0.1.0"
+source = "git+https://github.com/storytold/craft-libs?rev=e98299546f5c5c3c22388d16507f8b5e61a5f280#e98299546f5c5c3c22388d16507f8b5e61a5f280"
+dependencies = [
+ "aes",
+ "base64 0.23.1",
+ "craft-xml",
+ "craft-zip",
+ "flate2",
+ "getrandom 0.3.4",
+ "hmac",
+ "sha1 0.11.0",
+ "sha2 0.11.1",
+ "thiserror 2.0.21",
+ "zeroize",
+]
+
+[[package]]
 name = "craft-offcrypto"
 version = "0.1.0"
 source = "git+https://github.com/storytold/craft-libs?rev=e98299546f5c5c3c22388d16507f8b5e61a5f280#e98299546f5c5c3c22388d16507f8b5e61a5f280"
@@ -2405,6 +2423,7 @@ version = "0.19.1"
 dependencies = [
  "craft-cfb",
  "craft-csv",
+ "craft-odf",
  "craft-offcrypto",
  "craft-opc",
  "craft-xls",

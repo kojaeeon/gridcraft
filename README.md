@@ -88,12 +88,12 @@
 - **Familiar.** Ribbon, formula bar, Name Box, sheet tabs, keyboard shortcuts, fill handle,
   point-mode formula entry with coloured references, Format Cells, Paste Special,
   conditional formatting, tables, charts and more. Everything is right where you expect it.
-- **Compatible.** XLSX is the native format: styles, themes, formulas (including dynamic arrays),
+- **Compatible.** New workbooks save as ODS. XLSX reads and writes styles, themes, formulas (including dynamic arrays),
   tables, conditional formats, validation, comments, hyperlinks, charts, pictures, sparklines,
-  pivot tables and print settings round-trip. CSV and TSV too.
+  pivot tables and print settings. CSV and TSV too.
   Legacy 97-2003 `.xls` workbooks open with their values, formulas and number formats (formatting and objects not yet).
   [XLSB worksheet data can be imported](docs/xlsb-import.md), using saved values instead of formulas.
-  [ODS worksheet data can be imported](docs/ods-import.md), using saved values instead of formulas.
+  [Third-party ODS worksheet data can be imported](docs/ods-import.md), using saved values instead of formulas.
   [Static pictures can live inside cells](docs/cell-pictures.md), fitting their size and moving with the data.
 - **Capable.** A dependency-graph calculation engine with dynamic arrays and spilling,
   500+ worksheet functions plus LET, LAMBDA, MAP, REDUCE, SCAN, BYROW, BYCOL and MAKEARRAY,
@@ -191,7 +191,7 @@ egui frontend is a separate crate, so the UI can be swapped without touching the
 |---|---|
 | L0 | `core` (addresses, values, errors, dates, input parsing) · `numfmt` (number format codes) |
 | L1 | `formula` (lexer, parser, printer, reference adjustment) · `functions` (worksheet function library) |
-| L2 | `model` (workbook, sheets, copy-on-write cells, styles, tables, charts…) · `calc` (dependency graph, evaluator, dynamic arrays) · `xlsx` (XLSX, CSV, plus XLSB and ODS data import) |
+| L2 | `model` (workbook, sheets, copy-on-write cells, styles, tables, charts…) · `calc` (dependency graph, evaluator, dynamic arrays) · `xlsx` (XLSX, ODS, CSV, plus XLSB data import) |
 | L3 | `chart` (toolkit-free chart layout and rendering) |
 | L5 | `engine` (session, commands, history, clipboard, fill, sort, filter, file I/O) |
 | L6 | `ui-egui` (spreadsheet UI, control channel) · `mcp` (MCP server) |

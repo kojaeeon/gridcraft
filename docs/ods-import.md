@@ -1,22 +1,23 @@
-# Importing OpenDocument spreadsheets
+# OpenDocument spreadsheets
 
-Open an `.ods` file with File → Open, drag it onto GridCraft, or pass it to the CLI. GridCraft
-imports worksheet data into a new workbook and shows a warning describing the conversion limits.
+New workbooks save as `.ods` by default. Desktop Save and Save As use the file picker, and the
+web app downloads the workbook. Choose Excel Workbook in Save As to write `.xlsx`.
 
-The import reads sheets, numbers, text, booleans, supported dates/times, repeated cells/rows and
-merged cells. Formula cells become their **last saved results**, not live formulas. These results
-may be out of date if the source application did not recalculate before saving. Unsupported or
-missing values retain available display text and produce a warning.
+An ODS saved by GridCraft contains standard ODF worksheets with cell values, merged cells and
+common formulas that another spreadsheet app can calculate. It also carries an internal
+workbook part to retain features such as cell styles, charts and formulas when reopened in
+GridCraft. Another spreadsheet app sees the standard worksheet data. Its save can discard the
+internal part, and GridCraft ignores the internal part if the worksheet XML has changed.
 
-This is data import, not full ODS compatibility. Source formatting, formulas, charts, images,
-names and other workbook features are not preserved. GridCraft does not write ODS files.
-
-Save opens Save As and suggests a new `.xlsx` file. The source ODS file is not used as the
-workbook's save destination; requests to save to `.ods` return an error.
+When opening a third-party ODS file, GridCraft imports sheets, values, supported dates and times,
+and merged cells. Formula cells become their last saved results. Source formatting, charts and
+images are not imported. GridCraft warns about these limits and asks for a new destination on
+the first save, so it does not automatically overwrite the original.
 
 ```sh
 gridcraft-cli info source.ods
-gridcraft-cli convert source.ods imported.xlsx
+gridcraft-cli convert source.ods imported.ods
+gridcraft-cli convert source.xlsx workbook.ods
 ```
 
-CLI import warnings go to stderr, leaving structured output on stdout available for scripts.
+CLI import warnings are written to stderr.

@@ -38,7 +38,7 @@ use serde_json::{Value, json};
 
 const USAGE: &str = "usage:
   gridcraft-cli info <file> [--json]                      sheets, used ranges, tables, charts, names
-  gridcraft-cli convert <in> <out> [--sheet NAME]         xlsx/csv/tsv/json/html/pdf by extension
+  gridcraft-cli convert <in> <out> [--sheet NAME]         ods/xlsx/csv/tsv/json/html/pdf by extension
   gridcraft-cli eval <formula> [--in FILE] [--sheet S] [--cell A1] [--json]
   gridcraft-cli cat <file> [--range A1:D20] [--sheet S] [--formulas] [--csv]
   gridcraft-cli check <file-or-dir>... [--json] [--tolerance 1e-9] [--max-report N]
@@ -296,7 +296,7 @@ fn convert(args: &[String]) -> Result<(), String> {
     a.no_extra(2)?;
     let pdf = out.to_ascii_lowercase().ends_with(".pdf");
     if !pdf && gridcraft_engine::io::FileKind::from_path(out).is_none() {
-        return Err(format!("{out}: unknown output format (use .xlsx, .csv, .tsv, .json, .html or .pdf)"));
+        return Err(format!("{out}: unknown output format (use .ods, .xlsx, .csv, .tsv, .json, .html or .pdf)"));
     }
     let mut s = open(input)?;
     activate_sheet(&mut s, a.opt("sheet"))?;
@@ -461,7 +461,7 @@ fn run(args: &[String]) -> Result<(), String> {
     }
     if let Some(out) = a.opt("out") {
         let r = exec(&mut s, "file.save", json!({"path": out}))?;
-        eprintln!("wrote {out} ({} bytes)", r["bytes"]);
+        eprintln!("wrote {} ({} bytes)", r["path"].as_str().unwrap_or(out), r["bytes"]);
     }
     for (name, range) in &a.opts {
         if name == "print" {

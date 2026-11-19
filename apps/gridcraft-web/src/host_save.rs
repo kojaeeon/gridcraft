@@ -3,7 +3,7 @@
 use gridcraft_ui_egui::SheetApp;
 
 /// Only these outputs replace the editable workbook in the host.
-const WORKBOOK_EXTS: &[&str] = &["xlsx"];
+const WORKBOOK_EXTS: &[&str] = &["ods", "xlsx"];
 
 pub struct SaveMessage<'a> {
     pub name: &'a str,
@@ -44,7 +44,14 @@ mod tests {
     #[test]
     fn save_payload_marks_exports_and_preserves_name_and_bytes() {
         let bytes = [0, 1, 127, 128, 255];
-        for (name, export) in [("finance.xlsx", false), ("finance.XLSX", false), ("finance.pdf", true), ("finance.PDF", true)] {
+        for (name, export) in [
+            ("finance.xlsx", false),
+            ("finance.XLSX", false),
+            ("finance.ods", false),
+            ("finance.ODS", false),
+            ("finance.pdf", true),
+            ("finance.PDF", true),
+        ] {
             let message = SaveMessage::new(name, &bytes);
             assert_eq!(message.export, export, "{name}");
             assert_eq!(message.name, name);
@@ -87,7 +94,7 @@ mod tests {
 
     #[test]
     fn workbook_receipts_mark_saved_and_later_exports_do_not_replace_them() -> Result<(), String> {
-        for name in ["finance.xlsx", "finance.XLSX"] {
+        for name in ["finance.xlsx", "finance.XLSX", "finance.ods", "finance.ODS"] {
             let mut app = edited_app()?;
             assert!(app.session.active().ok_or("no active document")?.is_dirty());
             sync_saved(&[name.to_string(), "finance.pdf".to_string()], &mut app);

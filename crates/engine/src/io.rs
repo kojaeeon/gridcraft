@@ -1,4 +1,4 @@
-//! Opening and saving files: XLSX, legacy XLS import, XLSB and ODS data import, SYLK import, CSV/TSV, JSON (debug), HTML export.
+//! Opening and saving files: XLSX, legacy XLS import, XLSB data import, ODS, SYLK import, CSV/TSV, JSON (debug), HTML export.
 
 use std::fmt::Write as _;
 
@@ -15,6 +15,8 @@ pub const XLSX_FUNCTIONS: gridcraft_xlsx::FunctionInfo = gridcraft_xlsx::Functio
     is_builtin: |name| gridcraft_functions::lookup(name).is_some(),
     is_scalar_arg: |name, i| gridcraft_functions::lookup(name).is_none_or(|s| s.is_scalar_arg(i)),
 };
+
+pub const DEFAULT_SAVE_EXTENSION: &str = "ods";
 
 /// File formats GridCraft reads or writes.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -295,8 +297,12 @@ fn read_plain(name: &str, bytes: &[u8], csv_as_text: bool) -> Result<(Workbook, 
         _ => kind.filter(|k| matches!(k, FileKind::Ods | FileKind::Xlsb)),
     };
     if let Some(import) = import {
-        let read = if import == FileKind::Ods { gridcraft_xlsx::read_ods } else { gridcraft_xlsx::read_xlsb };
-        let (wb, report) = read(bytes).map_err(|e| EngineError::Other(format!("We can't import '{name}': {e}")))?;
+        let read = if import == FileKind::Ods {
+            gridcraft_xlsx::read_ods_with(bytes, (XLSX_FUNCTIONS, &gridcraft_calc::is_known_function as &dyn Fn(&str) -> bool))
+        } else {
+            gridcraft_xlsx::read_xlsb(bytes)
+        };
+        let (wb, report) = read.map_err(|e| EngineError::Other(format!("We can't import '{name}': {e}")))?;
         return Ok((wb, report.warnings));
     }
     // Text named `.xlsx` is read as text.
@@ -497,7 +503,7 @@ pub fn save_bytes(wb: &Workbook, path: &str) -> Result<Vec<u8>> {
     // a typo like `.cvs` would otherwise produce a file no other app recognises.
     let Some(kind) = FileKind::from_path(path) else {
         let name = std::path::Path::new(path).file_name().and_then(std::ffi::OsStr::to_str).unwrap_or(path);
-        return Err(EngineError::Other(format!("{name}: unknown file format. Save as .xlsx, .csv, .tsv, .json or .html.")));
+        return Err(EngineError::Other(format!("{name}: unknown file format. Save as .ods, .xlsx, .csv, .tsv, .json or .html.")));
     };
     save_bytes_as(wb, path, kind)
 }
@@ -508,22 +514,15 @@ pub fn save_bytes_as(wb: &Workbook, path: &str, kind: FileKind) -> Result<Vec<u8
     match kind {
         // The extension picks the package kind; only the macro-enabled kinds (.xlsm, .xltm) carry
         // the VBA project, so any other name saves without it, as Excel does.
-        // Macros, and button actions xlsx has no place for, travel in hidden names.
-        FileKind::Xlsx => {
-            let named = crate::macros::with_names(wb)?;
-            let named = match crate::cmd::controls::with_action_names(named.as_ref().unwrap_or(wb))? {
-                Some(w) => Some(w),
-                None => named,
-            };
-            let book = std::path::Path::new(path).file_name().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
-            gridcraft_xlsx::write_xlsx_named_with(named.as_ref().unwrap_or(wb), gridcraft_xlsx::XlsxKind::from_path(path), book, XLSX_FUNCTIONS)
-                .map_err(|e| EngineError::Other(e.to_string()))
+        FileKind::Xlsx => xlsx_bytes(wb, path, gridcraft_xlsx::XlsxKind::from_path(path)),
+        FileKind::Ods => {
+            let snapshot = xlsx_bytes(wb, path, gridcraft_xlsx::XlsxKind::MacroWorkbook)?;
+            gridcraft_xlsx::write_ods(wb, snapshot).map_err(|e| EngineError::Other(e.to_string()))
         }
         FileKind::Xls => {
             Err(EngineError::Other("Excel 97-2003 (.xls) is supported for import only. Save as .xlsx or another supported export format.".into()))
         }
         FileKind::Xlsb => Err(EngineError::Other("XLSB is supported for data import only. Save as .xlsx or another supported export format.".into())),
-        FileKind::Ods => Err(EngineError::Other("ODS is supported for data import only. Save as .xlsx or another supported export format.".into())),
         FileKind::Sylk => {
             Err(EngineError::Other("SYLK (.slk) is supported for import only. Save as .xlsx or another supported export format.".into()))
         }
@@ -533,6 +532,17 @@ pub fn save_bytes_as(wb: &Workbook, path: &str, kind: FileKind) -> Result<Vec<u8
         FileKind::Json => crate::macros::json_bytes(wb),
         FileKind::Html => to_html(wb, sheet).map(String::into_bytes),
     }
+}
+
+fn xlsx_bytes(wb: &Workbook, path: &str, kind: gridcraft_xlsx::XlsxKind) -> Result<Vec<u8>> {
+    // Macros and button actions travel in hidden names.
+    let named = crate::macros::with_names(wb)?;
+    let named = match crate::cmd::controls::with_action_names(named.as_ref().unwrap_or(wb))? {
+        Some(w) => Some(w),
+        None => named,
+    };
+    let book = std::path::Path::new(path).file_name().and_then(std::ffi::OsStr::to_str).unwrap_or_default();
+    gridcraft_xlsx::write_xlsx_named_with(named.as_ref().unwrap_or(wb), kind, book, XLSX_FUNCTIONS).map_err(|e| EngineError::Other(e.to_string()))
 }
 
 /// [`save_bytes`] for the file at `path`: relative paths to linked workbooks are rewritten for

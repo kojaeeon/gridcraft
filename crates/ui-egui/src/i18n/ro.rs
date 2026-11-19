@@ -430,7 +430,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Options|Save" => "Salvare",
         "Show formula bar" => "Afișare bară de formule",
         "Enable AutoComplete for cell values" => "Activare completare automată pentru valorile din celule",
-        "Save .xlsx workbooks automatically after every change" => "Salvează automat registrele .xlsx după fiecare modificare",
+        "Save .ods/.xlsx workbooks automatically after every change" => "Salvează automat registrele .ods/.xlsx după fiecare modificare",
         "Workbook calculation" => "Calculul registrului",
         "Enable iterative calculation" => "Activare calcul iterativ",
         "Calculation settings are saved with the workbook." => "Setările de calcul se salvează împreună cu registrul.",

@@ -1,5 +1,5 @@
-//! Data-only OpenDocument Spreadsheet import. Formula caches become constants; styles and
-//! other ODF features are deliberately not translated. All fixtures are authored in Rust.
+//! OpenDocument Spreadsheet import. Third-party formula caches become constants; styles and
+//! other ODF features are deliberately not translated. GridCraft files carry their full workbook.
 //! Format reference: ODF 1.3, part 3, sections 6.1 and 9.1:
 //! <https://docs.oasis-open.org/office/OpenDocument/v1.3/os/part3-schema/OpenDocument-v1.3-os-part3-schema.html>.
 
@@ -15,9 +15,11 @@ use quick_xml::events::{BytesStart, Event};
 use quick_xml::name::ResolveResult;
 
 use crate::package::{MAX_ENTRIES, Package};
-use crate::{IoError, ReadReport};
+use crate::{FunctionInfo, IoError, ReadReport};
 
-const MIME: &[u8] = b"application/vnd.oasis.opendocument.spreadsheet";
+const MIME: &[u8] = craft_odf::mime::SPREADSHEET.as_bytes();
+
+pub const ODS_DATA_ONLY: &str = "ODS data-only import: formulas become their saved results and will not recalculate. Source formatting, charts, images and other features are not imported. Save a new .ods or .xlsx file to keep the imported data.";
 const OFFICE: &[u8] = b"urn:oasis:names:tc:opendocument:xmlns:office:1.0";
 const TABLE: &[u8] = b"urn:oasis:names:tc:opendocument:xmlns:table:1.0";
 const TEXT: &[u8] = b"urn:oasis:names:tc:opendocument:xmlns:text:1.0";
@@ -44,10 +46,13 @@ pub(crate) fn has_mimetype(bytes: &[u8]) -> bool {
     (&mut file).take(MIME.len() as u64 + 1).read_to_end(&mut value).is_ok() && value == MIME
 }
 
-/// Imports ODS sheets, typed values, displayed text and merges. Cached formula results are
-/// imported as constants, so editing their inputs does not recalculate the original formula.
-/// Always inspect the returned warnings. Saving to ODS is not supported.
+/// Opens a GridCraft ODS workbook or imports the sheet data from a third-party ODS file.
 pub fn read_ods(bytes: &[u8]) -> Result<(Workbook, ReadReport), IoError> {
+    read_ods_with(bytes, FunctionInfo::default())
+}
+
+/// Like [`read_ods`], with the function library used to interpret GridCraft's saved formulas.
+pub fn read_ods_with<'a>(bytes: &[u8], functions: impl Into<crate::ReadOptions<'a>>) -> Result<(Workbook, ReadReport), IoError> {
     let mut package = Package::open(bytes)?;
     if !has_mimetype(bytes) {
         return Err(IoError::Format("missing or invalid ODS mimetype".into()));
@@ -56,6 +61,11 @@ pub fn read_ods(bytes: &[u8]) -> Result<(Workbook, ReadReport), IoError> {
         check_manifest(&manifest)?;
     }
     let content = package.read("content.xml")?.ok_or_else(|| IoError::Format("ODS content.xml is missing".into()))?;
+    if let Some(snapshot) = crate::ods_write::read_snapshot(&mut package, &content)
+        && let Ok(workbook) = crate::read_xlsx_with(&snapshot, functions)
+    {
+        return Ok(workbook);
+    }
     let mut import = Import::new();
     import.parse(&content)?;
     if import.wb.sheets.is_empty() {
@@ -241,7 +251,7 @@ impl Import {
         let mut wb = Workbook::new();
         wb.sheets.clear();
         let mut report = ReadReport::default();
-        report.warn("ODS data-only import: formulas become their saved results and will not recalculate. Source formatting, charts, images and other features are not imported. Save a new .xlsx file; ODS saving is not supported.");
+        report.warn(ODS_DATA_ONLY);
         Self {
             wb,
             report,

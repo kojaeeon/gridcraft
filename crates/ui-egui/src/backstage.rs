@@ -130,10 +130,14 @@ pub struct Backstage {
     recent: RecentFiles,
 }
 
-/// Save As file types: (extension, label). The first is the workbook itself; the others are
-/// exports that leave the workbook's own file and unsaved state alone.
-pub const SAVE_TYPES: [(&str, &str); 4] =
-    [("xlsx", "Excel Workbook (*.xlsx)"), ("csv", "CSV UTF-8 (Comma delimited) (*.csv)"), ("html", "Web Page (*.html)"), ("pdf", "PDF (*.pdf)")];
+/// Save As file types (extension, label), starting with the default workbook format.
+pub const SAVE_TYPES: [(&str, &str); 5] = [
+    (gridcraft_engine::io::DEFAULT_SAVE_EXTENSION, "OpenDocument Spreadsheet (*.ods)"),
+    ("xlsx", "Excel Workbook (*.xlsx)"),
+    ("csv", "CSV UTF-8 (Comma delimited) (*.csv)"),
+    ("html", "Web Page (*.html)"),
+    ("pdf", "PDF (*.pdf)"),
+];
 
 impl Backstage {
     pub fn new(page: Page) -> Backstage {
@@ -145,7 +149,7 @@ impl Backstage {
             fit_to_page: false,
             preview_page: 0,
             preview: None,
-            save_format: "xlsx",
+            save_format: gridcraft_engine::io::DEFAULT_SAVE_EXTENSION,
             recent: RecentFiles::default(),
         }
     }
@@ -672,13 +676,13 @@ fn info(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage) {
     });
 }
 
-/// Draws the Save As type picker and action: xlsx opens the `saveAs` dialog, other types export, and the page closes when the save/export succeeds (or a web download handles it).
+/// Draws the Save As type picker and closes the page when saving or exporting succeeds.
 fn save_as(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcome) {
     let lang = app.ui.language;
     dim(ui, lang.tr("Save the workbook under another name or in another folder."));
     ui.add_space(14.0);
     let fmt = bs.save_format;
-    let current = SAVE_TYPES.iter().find(|(ext, _)| *ext == fmt).map_or("Excel Workbook (*.xlsx)", |(_, label)| *label);
+    let current = SAVE_TYPES.iter().find(|(ext, _)| *ext == fmt).map_or(SAVE_TYPES[0].1, |(_, label)| *label);
     ui.horizontal(|ui| {
         let label = ui.label(lang.tr("Save as type"));
         craft_ui::ComboBox::from_id_salt("backstage_save_type")
@@ -699,16 +703,7 @@ fn save_as(app: &mut SheetApp, ui: &mut Ui, bs: &mut Backstage, out: &mut Outcom
     let web = app.services.pick_save.is_none() && app.services.download.is_some();
     let label = if web { format!("{} (.{fmt})", lang.tr("Download")) } else { lang.tr("Browse…").to_string() };
     if square_button(ui, Icon::OpenFolder, &label).clicked() && app.commit_edit(0, 0, false, false) {
-        if fmt == "xlsx" {
-            let before = app.session.active().map(|d| (d.path.clone(), d.is_dirty()));
-            app.open_dialog("saveAs", json!({}));
-            let after = app.session.active().map(|d| (d.path.clone(), d.is_dirty()));
-            if after != before || app.services.pick_save.is_none() {
-                out.close = true;
-            }
-        } else if export_as(app, fmt) {
-            out.close = true;
-        }
+        out.close = if matches!(fmt, "ods" | "xlsx") { app.save_workbook_as(Some(fmt)) } else { export_as(app, fmt) };
     }
     ui.add_space(18.0);
     dim(ui, lang.tr("A CSV file, web page or PDF is a copy: the workbook keeps its own file."));

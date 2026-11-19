@@ -456,7 +456,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Remove Hyperlink" => "Удалить гиперссылку",
         "Resize formula bar" => "Изменить размер строки формул",
         "Enable AutoComplete for cell values" => "Включить автозавершение значений ячеек",
-        "Save .xlsx workbooks automatically after every change" => "Автоматически сохранять книги .xlsx после каждого изменения",
+        "Save .ods/.xlsx workbooks automatically after every change" => "Автоматически сохранять книги .ods/.xlsx после каждого изменения",
         "Workbook calculation" => "Вычисления в книге",
         "Enable iterative calculation" => "Включить итеративные вычисления",
         "Maximum Iterations:" => "Предельное число итераций:",
