@@ -3047,7 +3047,7 @@ fn save_as_into_another_folder_keeps_linked_workbooks_on_the_same_file() {
     std::fs::remove_dir_all(a).unwrap();
 }
 
-/// A typo like `report.cvs` must not quietly write an XLSX under that name and adopt it as the
+/// A typo like `report.cvs` must not quietly write a workbook under that name and adopt it as the
 /// document's file.
 #[test]
 #[cfg(not(target_arch = "wasm32"))]
@@ -3057,10 +3057,10 @@ fn saving_to_an_unknown_extension_is_refused() {
     std::fs::create_dir(&dir).unwrap();
     let mut s = s();
     s.execute("cell.set", json!({"cell": "A1", "input": "1"})).unwrap();
-    for name in ["report.cvs", "report"] {
+    for name in ["report.cvs", "report.unknown"] {
         let path = dir.join(name);
         let e = s.execute("file.save", json!({"path": path})).unwrap_err().to_string();
-        assert!(e.contains(".xlsx"), "{name}: {e}");
+        assert!(e.contains(".ods") && e.contains(".xlsx"), "{name}: {e}");
         assert!(!path.exists(), "{name} was written");
     }
     let d = s.doc().unwrap();
