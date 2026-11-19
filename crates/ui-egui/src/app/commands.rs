@@ -4,6 +4,39 @@ use super::{
 };
 
 impl SheetApp {
+    /// Save As from the system shortcut or the Backstage format picker.
+    pub(crate) fn save_workbook_as(&mut self, format: Option<&str>) -> bool {
+        use gridcraft_engine::io::DEFAULT_SAVE_EXTENSION;
+
+        let title = self.session.active().map(|d| d.display_title()).unwrap_or_else(|| "Book1".into());
+        let path = std::path::Path::new(&title);
+        let stem = path.file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or("Book1");
+        let current = path.extension().and_then(std::ffi::OsStr::to_str);
+        let format =
+            format.or_else(|| current.filter(|e| e.eq_ignore_ascii_case("ods") || e.eq_ignore_ascii_case("xlsx"))).unwrap_or(DEFAULT_SAVE_EXTENSION);
+        let suggested = format!("{stem}.{format}");
+        let result = if let Some(pick) = &self.services.pick_save {
+            let Some(path) = pick(&suggested) else { return false };
+            let path = if std::path::Path::new(&path).extension().is_none() { format!("{path}.{format}") } else { path };
+            self.run("file.save", json!({"path": path}))
+        } else if self.services.download.is_some() {
+            self.run("file.saveBytes", json!({"format": format})).inspect(|r| {
+                if let Some(dl) = &self.services.download
+                    && let Some(bytes) = r.get("base64").and_then(Json::as_str).and_then(gridcraft_engine::io::base64_decode)
+                {
+                    dl(r.get("name").and_then(Json::as_str).unwrap_or(&suggested), &bytes);
+                }
+            })
+        } else {
+            return false;
+        };
+        if let Err(e) = result {
+            self.message = Some(("GridCraft".into(), clean_error(&e)));
+            return false;
+        }
+        true
+    }
+
     /// Runs an engine command (or a UI command) and handles UI requests it makes.
     pub fn run(&mut self, id: &str, params: Json) -> Result<Json, String> {
         let r = self.run_command(id, params);
@@ -419,20 +452,7 @@ impl SheetApp {
                 }
             }
             "saveAs" => {
-                let suggested = self.session.active().map(|d| d.display_title()).unwrap_or_else(|| "Book1".into());
-                if let Some(pick) = &self.services.pick_save {
-                    if let Some(path) = pick(&suggested) {
-                        let path = if std::path::Path::new(&path).extension().is_none() { format!("{path}.xlsx") } else { path };
-                        self.run_or_alert("file.save", json!({"path": path}));
-                    }
-                } else if self.services.download.is_some()
-                    && let Ok(r) = self.run("file.saveBytes", json!({"format": "xlsx"}))
-                    && let Some(dl) = &self.services.download
-                    && let Some(b) = r.get("base64").and_then(Json::as_str).and_then(gridcraft_engine::io::base64_decode)
-                {
-                    let name = r.get("name").and_then(Json::as_str).unwrap_or("Book.xlsx").to_string();
-                    dl(&name, &b);
-                }
+                self.save_workbook_as(params.get("format").and_then(Json::as_str));
             }
             // File › Options (`file.options`) and the File tab itself open the Backstage view.
             "options" => self.open_backstage(backstage::Page::Options),

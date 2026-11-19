@@ -361,7 +361,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Remove Hyperlink" => "Odebrat hypertextový odkaz",
         "Resize formula bar" => "Změnit velikost řádku vzorců",
         "Enable AutoComplete for cell values" => "Povolit automatické dokončování hodnot buněk",
-        "Save .xlsx workbooks automatically after every change" => "Automaticky ukládat sešity .xlsx po každé změně",
+        "Save .ods/.xlsx workbooks automatically after every change" => "Automaticky ukládat sešity .ods/.xlsx po každé změně",
         "Workbook calculation" => "Výpočet sešitu",
         "Enable iterative calculation" => "Povolit iterativní výpočet",
         "Maximum Iterations:" => "Maximální počet iterací:",

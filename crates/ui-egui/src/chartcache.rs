@@ -443,7 +443,7 @@ mod tests {
         assert_eq!(n, 0);
 
         // File load: the same workbook opened from bytes is a new document with its own charts.
-        let bytes = h.state_mut().session.execute("file.saveBytes", json!({})).unwrap();
+        let bytes = h.state_mut().session.execute("file.saveBytes", json!({"format": "xlsx"})).unwrap();
         let b64 = bytes["base64"].as_str().unwrap().to_string();
         let n = rendered_after(&mut h, |h| exec(h, "file.open", json!({"name": "again.xlsx", "base64": b64})));
         assert_eq!(n, 2, "file load");

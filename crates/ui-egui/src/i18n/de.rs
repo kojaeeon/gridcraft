@@ -380,7 +380,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Remove Hyperlink" => "Link entfernen",
         "Resize formula bar" => "Größe der Bearbeitungsleiste ändern",
         "Enable AutoComplete for cell values" => "AutoVervollständigen für Zellwerte aktivieren",
-        "Save .xlsx workbooks automatically after every change" => ".xlsx-Arbeitsmappen nach jeder Änderung automatisch speichern",
+        "Save .ods/.xlsx workbooks automatically after every change" => ".ods/.xlsx-Arbeitsmappen nach jeder Änderung automatisch speichern",
         "Workbook calculation" => "Arbeitsmappenberechnung",
         "Enable iterative calculation" => "Iterative Berechnung aktivieren",
         "Maximum Iterations:" => "Maximale Iterationszahl:",

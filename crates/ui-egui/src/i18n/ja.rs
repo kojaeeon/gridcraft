@@ -434,7 +434,7 @@ pub(super) const CORE: &[(&str, &str)] = &[
     ("Options|Save", "保存"),
     ("Show formula bar", "数式バーを表示する"),
     ("Enable AutoComplete for cell values", "セルの値にオートコンプリートを使用する"),
-    ("Save .xlsx workbooks automatically after every change", "変更のたびに .xlsx ブックを自動的に保存する"),
+    ("Save .ods/.xlsx workbooks automatically after every change", "変更のたびに .ods/.xlsx ブックを自動的に保存する"),
     ("Workbook calculation", "ブックの計算"),
     ("Enable iterative calculation", "反復計算を行う"),
     ("Maximum Iterations:", "最大反復回数:"),

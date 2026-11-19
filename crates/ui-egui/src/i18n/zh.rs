@@ -446,7 +446,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Remove Hyperlink" => "删除超链接",
         "Resize formula bar" => "调整编辑栏大小",
         "Enable AutoComplete for cell values" => "为单元格值启用记忆式键入",
-        "Save .xlsx workbooks automatically after every change" => "每次更改后自动保存 .xlsx 工作簿",
+        "Save .ods/.xlsx workbooks automatically after every change" => "每次更改后自动保存 .ods/.xlsx 工作簿",
         "Workbook calculation" => "工作簿计算",
         "Enable iterative calculation" => "启用迭代计算",
         "Maximum Iterations:" => "最多迭代次数:",

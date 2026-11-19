@@ -448,7 +448,7 @@ pub(super) fn translate(text: &str) -> Option<&'static str> {
         "Remove Hyperlink" => "Remover hiperlink",
         "Resize formula bar" => "Redimensionar a barra de fórmulas",
         "Enable AutoComplete for cell values" => "Habilitar AutoConclusão para valores de célula",
-        "Save .xlsx workbooks automatically after every change" => "Salvar pastas de trabalho .xlsx automaticamente após cada alteração",
+        "Save .ods/.xlsx workbooks automatically after every change" => "Salvar pastas de trabalho .ods/.xlsx automaticamente após cada alteração",
         "Workbook calculation" => "Cálculo da pasta de trabalho",
         "Enable iterative calculation" => "Habilitar cálculo iterativo",
         "Maximum Iterations:" => "Número Máximo de Iterações:",

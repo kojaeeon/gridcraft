@@ -358,14 +358,14 @@ fn base_tool_definitions() -> Vec<Value> {
         tool(
             "open_workbook",
             "Open workbook",
-            "Open a workbook file (.xlsx, .xlsm, .xls, .xlsb, .ods, .csv, .tsv, .txt, .json) and make it active. Excel 97-2003 .xls imports values, formulas and number formats; XLSB and ODS import worksheet data and cached formula values only; check the returned warnings.",
+            "Open a workbook file (.xlsx, .xlsm, .xls, .xlsb, .ods, .csv, .tsv, .txt, .json) and make it active. Excel 97-2003 .xls imports values, formulas and number formats; XLSB and third-party ODS import worksheet data and cached formula values; check the returned warnings.",
             obj(json!({"path": string("File path")}), &["path"]),
             false,
         ),
         tool(
             "save_workbook",
             "Save workbook",
-            "Save the active workbook. The format follows the extension (.xlsx default; .csv/.tsv save the active sheet; .json; .html). \
+            "Save the active workbook. The format follows the extension (.ods default; .xlsx; .csv/.tsv save the active sheet; .json; .html). \
              Without `path` saves to the workbook's current file.",
             obj(json!({"path": string("Destination path")}), &[]),
             false,

@@ -8,10 +8,10 @@ use crate::DocState;
 pub fn specs() -> Vec<CommandSpec> {
     vec![
         cmd!(noundo "file.new", "New Workbook", ["File"], Some("Cmd+N"), "{sample?: \"budget\"|\"sales\"|\"grades\"}", always, new_workbook),
-        cmd!(noundo "file.open", "Open…", ["File"], Some("Cmd+O"), "{path} | {name, base64}, plus {password} for a password-protected workbook and {csvAsText?: bool} to keep every csv/tsv/txt field as text, with no number or date conversion (xlsx, xlsm, xls import, xlsb and ods data import, csv, tsv, txt, json)", always, open),
-        cmd!(noundo "file.save", "Save", ["File"], Some("Cmd+S"), "{path?} (xlsx by default; .csv/.tsv/.json/.html/.pdf by extension)", has_doc, save),
-        cmd!(noundo "file.saveAs", "Save As…", ["File"], Some("Cmd+Shift+S"), "{path} (.xlsx, .csv, .tsv, .json, .html, or .pdf: a PDF of the active sheet)", has_doc, save_as),
-        cmd!(query "file.saveBytes", "Encode Workbook", [], None, "{format?: xlsx|csv|tsv|json|html} → {base64}", has_doc, save_bytes),
+        cmd!(noundo "file.open", "Open…", ["File"], Some("Cmd+O"), "{path} | {name, base64}, plus {password} for a password-protected workbook and {csvAsText?: bool} to keep every csv/tsv/txt field as text, with no number or date conversion (xlsx, xlsm, xls import, xlsb data import, ods, csv, tsv, txt, json)", always, open),
+        cmd!(noundo "file.save", "Save", ["File"], Some("Cmd+S"), "{path?} (.ods by default; .xlsx/.csv/.tsv/.json/.html/.pdf by extension)", has_doc, save),
+        cmd!(noundo "file.saveAs", "Save As…", ["File"], Some("Cmd+Shift+S"), "{path} (.ods, .xlsx, .csv, .tsv, .json, .html, or .pdf: a PDF of the active sheet)", has_doc, save_as),
+        cmd!(query "file.saveBytes", "Encode Workbook", [], None, "{format?: ods|xlsx|csv|tsv|json|html} → {base64}", has_doc, save_bytes),
         cmd!(noundo "file.close", "Close", ["File"], Some("Cmd+W"), "{force?: bool, document?: bool} (closes the active window, or with `document` the workbook and all its windows; the workbook closes with its last window)", has_doc, close),
         cmd!(noundo "file.exportCsv", "Export as CSV", ["File", "Export"], None, "{path, sheet?, values?: bool} → {path, bytes}: writes the cells as displayed, like Excel's Save As CSV; `values: true` writes raw values instead (full-precision numbers, ISO 8601 dates and times, TRUE/FALSE)", has_doc, |s, p| export(s, p, "csv")),
         cmd!(noundo "file.exportHtml", "Save as Web Page", ["File", "Export"], None, "{path}", has_doc, |s, p| export(s, p, "html")),
@@ -57,21 +57,29 @@ fn open(s: &mut Session, p: &Json) -> Result<Json> {
         s.ui_requests.push(crate::UiRequest::Dialog("open".into(), json!({})));
         return ok();
     };
-    let encrypted = gridcraft_xlsx::sniff(&bytes) == gridcraft_xlsx::Format::Encrypted;
+    use crate::io::FileKind;
+    use gridcraft_xlsx::Format;
+
+    let format = gridcraft_xlsx::sniff(&bytes);
+    let encrypted = format == Format::Encrypted;
     let (mut wb, warnings) = crate::io::open_bytes_with(&name, &bytes, str_param(p, "password"), bool_param(p, "csvAsText").unwrap_or(false))?;
     wb.source_dir = str_param(p, "path").and_then(crate::io::source_dir);
     // What `CELL("filename")` reports (#1489). A workbook opened from bytes knows its name but
     // never a folder, so it reports `[name]Sheet` with none; an import reports the file it came
-    // from, as Excel does, even though Save must still ask where to put the .xlsx.
+    // from, even though Save must still ask where to write an imported copy.
     wb.source_path = match str_param(p, "path") {
         Some(path) => crate::io::source_path(path),
         None => Some(std::path::PathBuf::from(&name)),
     };
-    let imported =
-        matches!(crate::io::FileKind::from_path(&name), Some(crate::io::FileKind::Ods | crate::io::FileKind::Xlsb | crate::io::FileKind::Xls))
-            || matches!(gridcraft_xlsx::sniff(&bytes), gridcraft_xlsx::Format::Ods | gridcraft_xlsx::Format::Xlsb | gridcraft_xlsx::Format::Xls);
+    let extension = FileKind::from_path(&name);
+    let ods = format == Format::Ods || extension == Some(FileKind::Ods);
+    let imported = matches!(extension, Some(FileKind::Xlsb | FileKind::Xls))
+        || matches!(format, Format::Xlsb | Format::Xls)
+        || ods && (format != Format::Ods || warnings.iter().any(|w| w == gridcraft_xlsx::ODS_DATA_ONLY));
     let title = if imported {
-        format!("{} (imported).xlsx", std::path::Path::new(&name).file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or("Book"))
+        let stem = std::path::Path::new(&name).file_stem().and_then(std::ffi::OsStr::to_str).unwrap_or("Book");
+        let ext = if ods { crate::io::DEFAULT_SAVE_EXTENSION } else { "xlsx" };
+        format!("{stem} (imported).{ext}")
     } else {
         std::path::Path::new(&name).file_name().and_then(std::ffi::OsStr::to_str).unwrap_or("Book").to_string()
     };
@@ -87,9 +95,11 @@ fn open(s: &mut Session, p: &Json) -> Result<Json> {
     }
     // Someone else may have made the file: its active content asks before it runs.
     let mut doc = DocState::new(wb, path, title, crate::Trust::FromFile);
-    if crate::io::FileKind::from_path(&name).is_none() && gridcraft_xlsx::sniff(&bytes) == gridcraft_xlsx::Format::Xlsx {
-        doc.content_kind = Some(crate::io::FileKind::Xlsx);
-    }
+    doc.content_kind = match format {
+        Format::Ods if !imported => Some(FileKind::Ods),
+        Format::Xlsx if extension.is_none() => Some(FileKind::Xlsx),
+        _ => None,
+    };
     let i = s.add_document(doc);
     // The decrypted-workbook notice is for the info bar, not a message box.
     let shown: Vec<&str> = warnings.iter().map(String::as_str).filter(|w| *w != crate::io::DECRYPTED_NOTICE).collect();
@@ -107,7 +117,7 @@ fn open(s: &mut Session, p: &Json) -> Result<Json> {
 }
 
 fn save(s: &mut Session, p: &Json) -> Result<Json> {
-    let path = match str_param(p, "path").map(str::to_string).or_else(|| s.active().and_then(|d| d.path.clone())) {
+    let mut path = match str_param(p, "path").map(str::to_string).or_else(|| s.active().and_then(|d| d.path.clone())) {
         Some(p) => p,
         None => {
             s.ui_requests.push(crate::UiRequest::Dialog("saveAs".into(), json!({})));
@@ -120,9 +130,17 @@ fn save(s: &mut Session, p: &Json) -> Result<Json> {
         return super::print::export_pdf(s, &json!({"path": path}));
     }
     let d = s.doc_mut()?;
-    // The document's own file keeps the format its content had when opened; any other path
-    // goes by its extension. Relative paths to linked workbooks are rewritten for the new folder.
-    let kind = crate::io::FileKind::from_path(&path).or(d.content_kind.filter(|_| d.path.as_deref() == Some(path.as_str())));
+    // Keep the detected format of the current file. A new name without a suffix gets .ods.
+    let current_kind = d.content_kind.filter(|_| d.path.as_deref() == Some(path.as_str()));
+    if current_kind.is_none()
+        && !path.is_empty()
+        && std::path::Path::new(&path).file_name().is_some()
+        && std::path::Path::new(&path).extension().is_none()
+    {
+        path.push('.');
+        path.push_str(crate::io::DEFAULT_SAVE_EXTENSION);
+    }
+    let kind = current_kind.or_else(|| crate::io::FileKind::from_path(&path));
     let rebased = crate::io::source_dir(&path).and_then(|f| gridcraft_xlsx::rebase_links(&d.wb, &f));
     let wb = rebased.as_ref().unwrap_or(&d.wb);
     let bytes = match kind {
@@ -131,7 +149,7 @@ fn save(s: &mut Session, p: &Json) -> Result<Json> {
     };
     crate::io::write_file(&path, &bytes)?;
     // Only a full-fidelity format clears the dirty flag and becomes the document's file.
-    if matches!(kind, Some(crate::io::FileKind::Xlsx | crate::io::FileKind::Json)) {
+    if matches!(kind, Some(crate::io::FileKind::Ods | crate::io::FileKind::Xlsx | crate::io::FileKind::Json)) {
         // The new file is the workbook's own now, so `CELL("filename")` reports it (#1489). Set
         // before the `saved` snapshot, or the workbook would read as dirty the moment it was
         // saved; and only when it changes, so an ordinary Save does not clone the workbook.
@@ -141,6 +159,7 @@ fn save(s: &mut Session, p: &Json) -> Result<Json> {
         }
         d.saved = d.wb.clone();
         d.path = Some(path.clone());
+        d.content_kind = kind;
     }
     Ok(json!({"path": path, "bytes": bytes.len()}))
 }
@@ -154,7 +173,7 @@ fn save_as(s: &mut Session, p: &Json) -> Result<Json> {
 }
 
 fn save_bytes(s: &mut Session, p: &Json) -> Result<Json> {
-    let fmt = str_param(p, "format").unwrap_or("xlsx");
+    let fmt = str_param(p, "format").unwrap_or(crate::io::DEFAULT_SAVE_EXTENSION);
     let d = s.doc()?;
     let name = format!("{}.{fmt}", std::path::Path::new(&d.display_title()).file_stem().and_then(|x| x.to_str()).unwrap_or("Book"));
     // The file name goes into a PivotChart's link to its PivotTable.
